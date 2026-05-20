@@ -41,17 +41,38 @@ async function run() {
     });
 
     // ✅ GET ONE
-    app.get("/tutors/:tutorId", async (req, res) => {
-      try {
-        const { tutorId } = req.params;
-        const result = await tutorsCollection.findOne({
-          _id: new ObjectId(tutorId),
-        });
-        res.json(result);
-      } catch (err) {
-        res.status(500).json({ error: "Tutor not found" });
-      }
+app.get("/tutors/:tutorId", async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+
+    // ✅ Check valid MongoDB ObjectId
+    if (!ObjectId.isValid(tutorId)) {
+      return res.status(400).json({
+        error: "Invalid Tutor ID",
+      });
+    }
+const result = await tutorsCollection.findOne({
+  _id: tutorId,
+});
+
+    // ✅ Tutor not found
+    if (!result) {
+      return res.status(404).json({
+        message: "Tutor not found",
+      });
+    }
+
+    res.json(result);
+
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      error: "Server Error",
     });
+  }
+});
+
 
     console.log("MongoDB Connected");
   } finally {
