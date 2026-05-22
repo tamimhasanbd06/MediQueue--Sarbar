@@ -8,19 +8,19 @@ app.use(express.json());
 
 app.use(cors({
   origin: "http://localhost:3000",
-  credentials: true
+  credentials: true,
 }));
 
 const port = process.env.PORT || 8000;
 
-const uri = "mongodb+srv://mediqueue:ehEJUNyigleIXJCF@cluster0.tbyvjgf.mongodb.net/?appName=Cluster0";
+const uri = process.env.MONGODB_URI || "mongodb+srv://mediqueue:ehEJUNyigleIXJCF@cluster0.tbyvjgf.mongodb.net/?appName=Cluster0";
 
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -30,49 +30,47 @@ async function run() {
     const db = client.db("mediqueue");
     const tutorsCollection = db.collection("tutors");
 
+    const loggor = (req, res, next) => {
+      console.log(`${req.method} | ${req.url}`);
+      next();
+    };
+
     // ✅ GET ALL
     app.get("/tutors", async (req, res) => {
       try {
         const result = await tutorsCollection.find().toArray();
         res.json(result);
       } catch (err) {
+        console.log(err);
         res.status(500).json({ error: "Failed to fetch tutors" });
       }
     });
 
     // ✅ GET ONE
-app.get("/tutors/:tutorId", async (req, res) => {
-  try {
-    const { tutorId } = req.params;
+    app.get("/tutors/:tutorId", loggor, async (req, res) => {
+      try {
+        const { tutorId } = req.params;
 
-    // ✅ Check valid MongoDB ObjectId
-    if (!ObjectId.isValid(tutorId)) {
-      return res.status(400).json({
-        error: "Invalid Tutor ID",
-      });
-    }
-const result = await tutorsCollection.findOne({
-  _id: tutorId,
-});
+        // No conversion to ObjectId, keep it as string
+        const result = await tutorsCollection.findOne({
+          _id: tutorId,
+        });
 
-    // ✅ Tutor not found
-    if (!result) {
-      return res.status(404).json({
-        message: "Tutor not found",
-      });
-    }
+        // ✅ Tutor not found
+        if (!result) {
+          return res.status(404).json({
+            message: "Tutor not found",
+          });
+        }
 
-    res.json(result);
-
-  } catch (err) {
-    console.log(err);
-
-    res.status(500).json({
-      error: "Server Error",
+        res.json(result);
+      } catch (err) {
+        console.log(err);
+        res.status(500).json({
+          error: "Server Error",
+        });
+      }
     });
-  }
-});
-
 
     console.log("MongoDB Connected");
   } finally {
