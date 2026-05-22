@@ -72,6 +72,32 @@ async function run() {
       }
     });
 
+
+
+// POST NEW TUTOR
+app.post("/tutors", loggor, async (req, res) => {
+  try {
+    const tutor = req.body;
+    const userId = req.userId; // ধরে নিচ্ছি, তুমি middleware দিয়ে ইউজার আইডি নিয়ে আসবে
+
+    // ইউজারের আইডি যোগ করে টিউটর সংযোজন
+    tutor.userId = userId;
+
+    // টিউটর ডেটা ডাটাবেসে সংরক্ষণ
+    const result = await tutorsCollection.insertOne(tutor);
+
+    res.status(201).json({
+      message: "Tutor added successfully",
+      tutorId: result.insertedId,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to add tutor" });
+  }
+});
+
+
+
     console.log("MongoDB Connected");
   } finally {
     // keep alive
@@ -79,6 +105,7 @@ async function run() {
 }
 
 run().catch(console.dir);
+
 
 app.get("/", (req, res) => {
   res.send("Hello Tamim Hasan");
