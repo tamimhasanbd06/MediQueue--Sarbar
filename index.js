@@ -1,6 +1,9 @@
 const express = require("express");
+
 const cors = require("cors");
+
 const jwt = require("jsonwebtoken");
+
 const {
   MongoClient,
   ServerApiVersion,
@@ -11,6 +14,10 @@ require("dotenv").config();
 
 const app = express();
 
+// =====================================
+// MIDDLEWARE
+// =====================================
+
 app.use(express.json());
 
 app.use(
@@ -20,7 +27,15 @@ app.use(
   })
 );
 
+// =====================================
+// PORT
+// =====================================
+
 const port = process.env.PORT || 8000;
+
+// =====================================
+// MONGODB URI
+// =====================================
 
 const uri =
   process.env.MONGODB_URI ||
@@ -28,9 +43,13 @@ const uri =
 
 if (!uri) {
   throw new Error(
-    "MONGODB_URI or MONGODB_URL missing"
+    "MONGODB_URI missing"
   );
 }
+
+// =====================================
+// MONGO CLIENT
+// =====================================
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -40,176 +59,145 @@ const client = new MongoClient(uri, {
   },
 });
 
-// =========================
+// =====================================
 // LOGGER
-// =========================
-const logger = (req, res, next) => {
-  console.log(`${req.method} | ${req.url}`);
+// =====================================
+
+const logger = (
+  req,
+  res,
+  next
+) => {
+  console.log(
+    `${req.method} ${req.url}`
+  );
+
   next();
 };
 
-// =========================
-// JWT AUTH MIDDLEWARE
-// =========================
-const verifyJWT = (req, res, next) => {
-  const authHeader =
-    req.headers.authorization || "";
+// =====================================
+// VERIFY JWT
+// =====================================
 
-  const token =
-    authHeader.startsWith("Bearer ")
-      ? authHeader.split(" ")[1]
-      : null;
-
-  if (!token) {
-    return res.status(401).json({
-      message: "Unauthorized",
-    });
-  }
-
-  if (!process.env.JWT_SECRET) {
-    return res.status(500).json({
-      message: "JWT_SECRET missing",
-    });
-  }
-
+const verifyJWT = (
+  req,
+  res,
+  next
+) => {
   try {
+    const authHeader =
+      req.headers.authorization || "";
+
+    const token =
+      authHeader.startsWith(
+        "Bearer "
+      )
+        ? authHeader.split(" ")[1]
+        : null;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+      return res.status(500).json({
+        message:
+          "JWT_SECRET missing",
+      });
+    }
+
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
     req.user = decoded;
-    req.userId = decoded.id;
+
+    req.userId =
+      decoded.id ||
+      decoded.userId ||
+      decoded._id ||
+      decoded.sub;
+
+    if (!req.userId) {
+      return res.status(401).json({
+        message:
+          "Invalid user token",
+      });
+    }
 
     next();
-  } catch (error) {
+  } catch (err) {
+    console.log(err);
+
     return res.status(401).json({
-      message: "Invalid or expired token",
+      message:
+        "Invalid or expired token",
     });
   }
 };
 
-// =========================
-// MONGO ID HELPER
-// =========================
+// =====================================
+// SAFE OBJECT ID
+// =====================================
+
 const buildIdQuery = (id) => {
-  if (ObjectId.isValid(id)) {
+  try {
+    if (ObjectId.isValid(id)) {
+      return {
+        _id: new ObjectId(id),
+      };
+    }
+
     return {
-      _id: new ObjectId(id),
+      _id: id,
+    };
+  } catch {
+    return {
+      _id: id,
     };
   }
-
-  return {
-    _id: id,
-  };
 };
 
-// =========================
-// USER FILTER HELPER
-// =========================
-const buildUserFilter = (req) => {
-  const filters = [];
-
-  if (req.userId) {
-    filters.push({
-      id: req.userId,
-    });
-  }
-
-  if (req.userId && ObjectId.isValid(req.userId)) {
-    filters.push({
-      _id: new ObjectId(req.userId),
-    });
-  }
-
-  if (req.user?.email) {
-    filters.push({
-      email: req.user.email,
-    });
-  }
-
-  return {
-    $or: filters,
-  };
-};
-
-// =========================
-// SAFE PROFILE DATA
-// =========================
-const getSafeProfileData = (body) => {
-  const updateData = {};
-
-  if (typeof body.name === "string") {
-    updateData.name = body.name.trim();
-  }
-
-  if (typeof body.email === "string") {
-    updateData.email = body.email.trim();
-  }
-
-  if (typeof body.image === "string") {
-    updateData.image = body.image.trim();
-  }
-
-  updateData.updatedAt = new Date();
-
-  return updateData;
-};
+// =====================================
+// RUN SERVER
+// =====================================
 
 async function run() {
   try {
     await client.connect();
 
-    const db = client.db("mediqueue");
+    console.log(
+      "MongoDB Connected"
+    );
+
+    const db =
+      client.db("mediqueue");
 
     const tutorsCollection =
       db.collection("tutors");
 
-    // Better Auth usually uses user collection.
-    const userCollection =
-      db.collection("user");
-
-    // Fallback if your database has users collection.
-    const usersCollection =
-      db.collection("users");
-
-    // Extra profile collection for safe profile updates.
     const profilesCollection =
       db.collection("profiles");
 
-    // =========================
-    // FIND AUTH USER HELPER
-    // =========================
-    const findAuthUser = async (filter) => {
-      let authUser =
-        await userCollection.findOne(filter);
+    // =====================================
+    // ROOT
+    // =====================================
 
-      if (authUser) {
-        return {
-          authUser,
-          collection: userCollection,
-        };
-      }
+    app.get("/", (req, res) => {
+      res.send(
+        "Server Running Successfully"
+      );
+    });
 
-      authUser =
-        await usersCollection.findOne(filter);
-
-      if (authUser) {
-        return {
-          authUser,
-          collection: usersCollection,
-        };
-      }
-
-      return {
-        authUser: null,
-        collection: userCollection,
-      };
-    };
-
-    // =========================
+    // =====================================
     // AUTH CHECK
-    // =========================
+    // =====================================
+
     app.get(
       "/auth/check",
       logger,
@@ -222,109 +210,84 @@ async function run() {
       }
     );
 
-    // =========================
-    // GET PROFILE
-    // =========================
+    // =====================================
+    // PROFILE
+    // =====================================
+
     app.get(
       "/profile",
       logger,
       verifyJWT,
       async (req, res) => {
         try {
-          const filter = buildUserFilter(req);
-
-          const { authUser } =
-            await findAuthUser(filter);
-
-          const savedProfile =
-            await profilesCollection.findOne({
-              userId: req.userId,
-            });
-
-          const user = {
-            id:
-              authUser?.id ||
-              req.userId ||
-              "",
-            name:
-              savedProfile?.name ||
-              authUser?.name ||
-              req.user?.name ||
-              "",
-            email:
-              savedProfile?.email ||
-              authUser?.email ||
-              req.user?.email ||
-              "",
-            image:
-              savedProfile?.image ||
-              authUser?.image ||
-              req.user?.image ||
-              "",
-          };
+          const profile =
+            await profilesCollection.findOne(
+              {
+                userId:
+                  req.userId,
+              }
+            );
 
           res.json({
             success: true,
-            user,
+            user:
+              profile ||
+              req.user,
           });
         } catch (err) {
+          console.log(err);
+
           res.status(500).json({
-            message: "Failed to fetch profile",
+            message:
+              "Failed to fetch profile",
           });
         }
       }
     );
 
-    // =========================
+    // =====================================
     // UPDATE PROFILE
-    // =========================
+    // =====================================
+
     app.patch(
       "/profile",
       logger,
       verifyJWT,
       async (req, res) => {
         try {
-          const updateData =
-            getSafeProfileData(req.body);
+          const {
+            name,
+            email,
+            image,
+          } = req.body;
 
-          if (
-            !updateData.name &&
-            !updateData.email &&
-            !updateData.image
-          ) {
-            return res.status(400).json({
-              message:
-                "Name, email or image is required",
-            });
-          }
+          const updateData = {
+            updatedAt:
+              new Date(),
+          };
 
-          const filter = buildUserFilter(req);
+          if (name)
+            updateData.name =
+              name;
 
-          const { authUser, collection } =
-            await findAuthUser(filter);
+          if (email)
+            updateData.email =
+              email;
 
-          // Update Better Auth user document if found.
-          if (authUser) {
-            await collection.updateOne(
-              filter,
-              {
-                $set: updateData,
-              }
-            );
-          }
+          if (image)
+            updateData.image =
+              image;
 
-          // Always save profile copy safely.
           await profilesCollection.updateOne(
             {
-              userId: req.userId,
+              userId:
+                req.userId,
             },
             {
               $set: {
                 ...updateData,
-                userId: req.userId,
-              },
-              $setOnInsert: {
-                createdAt: new Date(),
+                userId:
+                  req.userId,
               },
             },
             {
@@ -332,150 +295,164 @@ async function run() {
             }
           );
 
-          const savedProfile =
-            await profilesCollection.findOne({
-              userId: req.userId,
-            });
-
-          const user = {
-            id:
-              authUser?.id ||
-              req.userId ||
-              "",
-            name:
-              savedProfile?.name ||
-              updateData.name ||
-              authUser?.name ||
-              req.user?.name ||
-              "",
-            email:
-              savedProfile?.email ||
-              updateData.email ||
-              authUser?.email ||
-              req.user?.email ||
-              "",
-            image:
-              savedProfile?.image ||
-              updateData.image ||
-              authUser?.image ||
-              req.user?.image ||
-              "",
-          };
-
           res.json({
             success: true,
-            message: "Profile updated",
-            user,
+            message:
+              "Profile updated",
           });
         } catch (err) {
+          console.log(err);
+
           res.status(500).json({
-            message: "Profile update failed",
+            message:
+              "Profile update failed",
           });
         }
       }
     );
 
-    // =========================
+    // =====================================
     // GET ALL TUTORS
-    // =========================
-    app.get("/tutors", async (req, res) => {
-      try {
-        const result =
-          await tutorsCollection
-            .find()
-            .toArray();
+    // =====================================
 
-        res.json(result);
-      } catch (err) {
-        res.status(500).json({
-          message: "Failed to fetch tutors",
-        });
+    app.get(
+      "/tutors",
+      logger,
+      async (req, res) => {
+        try {
+          const tutors =
+            await tutorsCollection
+              .find()
+              .sort({
+                createdAt:
+                  -1,
+              })
+              .toArray();
+
+          res.json(
+            Array.isArray(
+              tutors
+            )
+              ? tutors
+              : []
+          );
+        } catch (err) {
+          console.log(err);
+
+          res.status(500).json({
+            message:
+              "Failed to fetch tutors",
+          });
+        }
       }
-    });
+    );
 
-    // =========================
+    // =====================================
     // GET SINGLE TUTOR
-    // =========================
+    // =====================================
+
     app.get(
       "/tutors/:id",
       logger,
-      verifyJWT,
       async (req, res) => {
         try {
-          const id = req.params.id;
+          const id =
+            req.params.id;
+
+          const query =
+            buildIdQuery(
+              id
+            );
 
           const tutor =
             await tutorsCollection.findOne(
-              buildIdQuery(id)
+              query
             );
 
           if (!tutor) {
             return res.status(404).json({
-              message: "Tutor not found",
+              message:
+                "Tutor not found",
             });
           }
 
           res.json(tutor);
         } catch (err) {
+          console.log(err);
+
           res.status(500).json({
-            message: "Server error",
+            message:
+              "Server error",
           });
         }
       }
     );
 
-    // =========================
+    // =====================================
     // CREATE TUTOR
-    // JWT PROTECTED
-    // =========================
+    // =====================================
+
     app.post(
       "/tutors",
       logger,
       verifyJWT,
       async (req, res) => {
         try {
-          const tutor = req.body;
+          const tutor =
+            req.body;
 
-          // =========================
-          // VALIDATION
-          // =========================
-          if (!tutor.name || !tutor.subject) {
+          if (
+            !tutor.name ||
+            !tutor.subject
+          ) {
             return res.status(400).json({
               message:
-                "Name & Subject required",
+                "Name and subject required",
             });
           }
 
-          // =========================
-          // CREATOR FROM JWT
-          // =========================
           tutor.creator = {
             type: "user",
-            userId: req.userId,
-            name: req.user?.name || "",
-            email: req.user?.email || "",
-            image: req.user?.image || "",
+
+            userId:
+              req.userId ||
+              "unknown",
+
+            name:
+              req.user
+                ?.name ||
+              "Unknown",
+
+            email:
+              req.user
+                ?.email ||
+              "",
           };
 
-          tutor.totalSeats = Number(
-            tutor.totalSeats || 0
-          );
+          tutor.hourlyFee =
+            Number(
+              tutor.hourlyFee ||
+                0
+            );
 
-          tutor.hourlyFee = Number(
-            tutor.hourlyFee || 0
-          );
-
-          tutor.maxStudents = Number(
-            tutor.maxStudents ||
+          tutor.totalSeats =
+            Number(
               tutor.totalSeats ||
-              0
-          );
+                0
+            );
+
+          tutor.maxStudents =
+            Number(
+              tutor.maxStudents ||
+                0
+            );
 
           tutor.fee = Number(
             tutor.fee || 0
           );
 
-          tutor.createdAt = new Date();
+          tutor.createdAt =
+            new Date();
 
           const result =
             await tutorsCollection.insertOne(
@@ -483,83 +460,212 @@ async function run() {
             );
 
           res.status(201).json({
-            message: "Tutor created",
-            insertedId: result.insertedId,
-            creator: tutor.creator,
+            success: true,
+            insertedId:
+              result.insertedId,
+            message:
+              "Tutor created successfully",
           });
         } catch (err) {
           console.log(err);
 
           res.status(500).json({
-            message: "Failed to create tutor",
+            message:
+              "Failed to create tutor",
           });
         }
       }
     );
 
-    // =========================
+    // =====================================
     // MY TUTORS
-    // JWT PROTECTED
-    // =========================
+    // =====================================
+
     app.get(
       "/my-tutors",
       logger,
       verifyJWT,
       async (req, res) => {
         try {
-          const userId = req.userId;
-
-          if (!userId) {
-            return res.status(401).json({
-              message: "Unauthorized",
-            });
-          }
-
-          const result =
+          const tutors =
             await tutorsCollection
               .find({
-                "creator.userId": userId,
+                "creator.userId":
+                  req.userId,
+              })
+              .sort({
+                createdAt:
+                  -1,
               })
               .toArray();
 
-          res.json(result);
+          res.json(
+            Array.isArray(
+              tutors
+            )
+              ? tutors
+              : []
+          );
         } catch (err) {
+          console.log(err);
+
           res.status(500).json({
             message:
-              "Failed to fetch user tutors",
+              "Failed to fetch tutors",
           });
         }
       }
     );
 
-    // =========================
+    // =====================================
+    // UPDATE TUTOR
+    // =====================================
+
+    app.patch(
+      "/tutors/:id",
+      logger,
+      verifyJWT,
+      async (req, res) => {
+        try {
+          const id =
+            req.params.id;
+
+          const query =
+            buildIdQuery(
+              id
+            );
+
+          const tutor =
+            await tutorsCollection.findOne(
+              query
+            );
+
+          if (!tutor) {
+            return res.status(404).json({
+              message:
+                "Tutor not found",
+            });
+          }
+
+          if (
+            tutor?.creator
+              ?.userId !==
+            req.userId
+          ) {
+            return res.status(403).json({
+              message:
+                "Forbidden",
+            });
+          }
+
+          const updateData =
+            req.body;
+
+          delete updateData._id;
+
+          delete updateData.creator;
+
+          if (
+            updateData.hourlyFee
+          ) {
+            updateData.hourlyFee =
+              Number(
+                updateData.hourlyFee
+              );
+          }
+
+          if (
+            updateData.totalSeats
+          ) {
+            updateData.totalSeats =
+              Number(
+                updateData.totalSeats
+              );
+          }
+
+          if (
+            updateData.maxStudents
+          ) {
+            updateData.maxStudents =
+              Number(
+                updateData.maxStudents
+              );
+          }
+
+          if (
+            updateData.fee
+          ) {
+            updateData.fee =
+              Number(
+                updateData.fee
+              );
+          }
+
+          updateData.updatedAt =
+            new Date();
+
+          const result =
+            await tutorsCollection.updateOne(
+              query,
+              {
+                $set:
+                  updateData,
+              }
+            );
+
+          res.json({
+            success: true,
+            result,
+          });
+        } catch (err) {
+          console.log(err);
+
+          res.status(500).json({
+            message:
+              "Failed to update tutor",
+          });
+        }
+      }
+    );
+
+    // =====================================
     // DELETE TUTOR
-    // JWT PROTECTED
-    // =========================
+    // =====================================
+
     app.delete(
       "/tutors/:id",
       logger,
       verifyJWT,
       async (req, res) => {
         try {
-          const id = req.params.id;
-          const query = buildIdQuery(id);
+          const id =
+            req.params.id;
+
+          const query =
+            buildIdQuery(
+              id
+            );
 
           const tutor =
-            await tutorsCollection.findOne(query);
+            await tutorsCollection.findOne(
+              query
+            );
 
           if (!tutor) {
             return res.status(404).json({
-              message: "Tutor not found",
+              message:
+                "Tutor not found",
             });
           }
 
           if (
-            tutor?.creator?.userId !==
+            tutor?.creator
+              ?.userId !==
             req.userId
           ) {
             return res.status(403).json({
-              message: "Forbidden",
+              message:
+                "Forbidden",
             });
           }
 
@@ -568,95 +674,20 @@ async function run() {
               query
             );
 
-          res.json(result);
+          res.json({
+            success: true,
+            result,
+          });
         } catch (err) {
+          console.log(err);
+
           res.status(500).json({
-            message: "Delete failed",
+            message:
+              "Delete failed",
           });
         }
       }
     );
-
-    // =========================
-    // UPDATE TUTOR
-    // JWT PROTECTED
-    // =========================
-    app.patch(
-      "/tutors/:id",
-      logger,
-      verifyJWT,
-      async (req, res) => {
-        try {
-          const id = req.params.id;
-          const query = buildIdQuery(id);
-
-          const tutor =
-            await tutorsCollection.findOne(query);
-
-          if (!tutor) {
-            return res.status(404).json({
-              message: "Tutor not found",
-            });
-          }
-
-          if (
-            tutor?.creator?.userId !==
-            req.userId
-          ) {
-            return res.status(403).json({
-              message: "Forbidden",
-            });
-          }
-
-          const updateData = req.body;
-
-          delete updateData._id;
-          delete updateData.creator;
-
-          if (updateData.hourlyFee) {
-            updateData.hourlyFee = Number(
-              updateData.hourlyFee
-            );
-          }
-
-          if (updateData.totalSeats) {
-            updateData.totalSeats = Number(
-              updateData.totalSeats
-            );
-          }
-
-          if (updateData.maxStudents) {
-            updateData.maxStudents = Number(
-              updateData.maxStudents
-            );
-          }
-
-          if (updateData.fee) {
-            updateData.fee = Number(
-              updateData.fee
-            );
-          }
-
-          updateData.updatedAt = new Date();
-
-          const result =
-            await tutorsCollection.updateOne(
-              query,
-              {
-                $set: updateData,
-              }
-            );
-
-          res.json(result);
-        } catch (err) {
-          res.status(500).json({
-            message: "Update failed",
-          });
-        }
-      }
-    );
-
-    console.log("MongoDB Connected");
   } catch (err) {
     console.log(err);
   }
@@ -664,16 +695,12 @@ async function run() {
 
 run().catch(console.dir);
 
-// =========================
-// ROOT
-// =========================
-app.get("/", (req, res) => {
-  res.send("MediQueue Server Running");
-});
-
-// =========================
+// =====================================
 // START SERVER
-// =========================
+// =====================================
+
 app.listen(port, () => {
-  console.log(`Server running on ${port}`);
+  console.log(
+    `Server running on ${port}`
+  );
 });
