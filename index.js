@@ -15,7 +15,7 @@ require("dotenv").config();
 const app = express();
 
 
-
+//   MIDDLEWARE
 
 
 app.use(express.json());
@@ -28,15 +28,33 @@ app.use(
 );
 
 
+  // PORT
 
 
-
-const port = process.env.PORT || 8000;
-
-
+const port =
+  process.env.PORT || 8000;
 
 
+//   MONTHS
 
+
+const months = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+
+//   MONGODB URI
 
 const uri =
   process.env.MONGODB_URI ||
@@ -48,22 +66,21 @@ if (!uri) {
   );
 }
 
+//   MONGODB CLIENT
 
 
+const client =
+  new MongoClient(uri, {
+    serverApi: {
+      version:
+        ServerApiVersion.v1,
+      strict: true,
+      deprecationErrors: true,
+    },
+  });
 
 
-
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
-
-
-
-
+  // LOGGER
 
 const logger = (
   req,
@@ -78,6 +95,8 @@ const logger = (
 };
 
 
+//   VERIFY JWT
+
 
 const verifyJWT = (
   req,
@@ -86,7 +105,8 @@ const verifyJWT = (
 ) => {
   try {
     const authHeader =
-      req.headers.authorization || "";
+      req.headers.authorization ||
+      "";
 
     const token =
       authHeader.startsWith(
@@ -97,7 +117,8 @@ const verifyJWT = (
 
     if (!token) {
       return res.status(401).json({
-        message: "Unauthorized",
+        message:
+          "Unauthorized",
       });
     }
 
@@ -110,10 +131,11 @@ const verifyJWT = (
       });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
     req.user = decoded;
 
@@ -142,11 +164,16 @@ const verifyJWT = (
 };
 
 
+//   BUILD ID QUERY
 
 
-const buildIdQuery = (id) => {
+const buildIdQuery = (
+  id
+) => {
   try {
-    if (ObjectId.isValid(id)) {
+    if (
+      ObjectId.isValid(id)
+    ) {
       return {
         _id: new ObjectId(id),
       };
@@ -163,7 +190,7 @@ const buildIdQuery = (id) => {
 };
 
 
-
+//   MAIN FUNCTION
 
 
 async function run() {
@@ -174,48 +201,75 @@ async function run() {
       "MongoDB Connected"
     );
 
+  
+//       DATABASE
+
+
     const db =
-      client.db("mediqueue");
+      client.db(
+        "mediqueue"
+      );
 
     const tutorsCollection =
-      db.collection("tutors");
+      db.collection(
+        "tutors"
+      );
 
     const profilesCollection =
-      db.collection("profiles");
-
- 
-
-
-
-    app.get("/", (req, res) => {
-      res.send(
-        "Server Running Successfully"
+      db.collection(
+        "profiles"
       );
-    });
 
+    const bookedSessionsCollection =
+      db.collection(
+        "bookedSessions"
+      );
+
+    
+    //   HOME ROUTE
+    
+
+    app.get(
+      "/",
+      (req, res) => {
+        res.send(
+          "Server Running Successfully"
+        );
+      }
+    );
+
+    
+    //   AUTH CHECK
+    
 
     app.get(
       "/auth/check",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         res.json({
           success: true,
-          user: req.user,
+          user:
+            req.user,
         });
       }
     );
 
-  
-
-
-
+    
+    //   GET PROFILE
+    
 
     app.get(
       "/profile",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const profile =
             await profilesCollection.findOne(
@@ -227,6 +281,7 @@ async function run() {
 
           res.json({
             success: true,
+
             user:
               profile ||
               req.user,
@@ -243,14 +298,17 @@ async function run() {
     );
 
     
-
-
+    //   UPDATE PROFILE
+    
 
     app.patch(
       "/profile",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const {
             name,
@@ -258,10 +316,11 @@ async function run() {
             image,
           } = req.body;
 
-          const updateData = {
-            updatedAt:
-              new Date(),
-          };
+          const updateData =
+            {
+              updatedAt:
+                new Date(),
+            };
 
           if (name)
             updateData.name =
@@ -294,6 +353,7 @@ async function run() {
 
           res.json({
             success: true,
+
             message:
               "Profile updated",
           });
@@ -308,11 +368,17 @@ async function run() {
       }
     );
 
+    
+    //   GET ALL TUTORS
+    
 
     app.get(
       "/tutors",
       logger,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const tutors =
             await tutorsCollection
@@ -342,11 +408,16 @@ async function run() {
     );
 
     
+    //   GET SINGLE TUTOR
+    
 
     app.get(
       "/tutors/:id",
       logger,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const id =
             req.params.id;
@@ -368,7 +439,9 @@ async function run() {
             });
           }
 
-          res.json(tutor);
+          res.json(
+            tutor
+          );
         } catch (err) {
           console.log(err);
 
@@ -380,12 +453,18 @@ async function run() {
       }
     );
 
+    
+    //   CREATE TUTOR
+    
 
     app.post(
       "/tutors",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const tutor =
             req.body;
@@ -400,23 +479,24 @@ async function run() {
             });
           }
 
-          tutor.creator = {
-            type: "user",
+          tutor.creator =
+            {
+              type: "user",
 
-            userId:
-              req.userId ||
-              "unknown",
+              userId:
+                req.userId ||
+                "unknown",
 
-            name:
-              req.user
-                ?.name ||
-              "Unknown",
+              name:
+                req.user
+                  ?.name ||
+                "Unknown",
 
-            email:
-              req.user
-                ?.email ||
-              "",
-          };
+              email:
+                req.user
+                  ?.email ||
+                "",
+            };
 
           tutor.hourlyFee =
             Number(
@@ -436,9 +516,11 @@ async function run() {
                 0
             );
 
-          tutor.fee = Number(
-            tutor.fee || 0
-          );
+          tutor.fee =
+            Number(
+              tutor.fee ||
+                0
+            );
 
           tutor.createdAt =
             new Date();
@@ -450,8 +532,10 @@ async function run() {
 
           res.status(201).json({
             success: true,
+
             insertedId:
               result.insertedId,
+
             message:
               "Tutor created successfully",
           });
@@ -467,16 +551,17 @@ async function run() {
     );
 
     
-
-
-
-
+    //   MY TUTORS
+    
 
     app.get(
       "/my-tutors",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const tutors =
             await tutorsCollection
@@ -508,15 +593,18 @@ async function run() {
       }
     );
 
-  
 
-
+    //   UPDATE TUTOR
+    
 
     app.patch(
       "/tutors/:id",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const id =
             req.params.id;
@@ -619,14 +707,18 @@ async function run() {
       }
     );
 
-      
-
+    
+    //   DELETE TUTOR
+    
 
     app.delete(
       "/tutors/:id",
       logger,
       verifyJWT,
-      async (req, res) => {
+      async (
+        req,
+        res
+      ) => {
         try {
           const id =
             req.params.id;
@@ -678,6 +770,363 @@ async function run() {
         }
       }
     );
+
+    
+    //   BOOK SESSION
+    
+
+    app.post(
+      "/book-session",
+      logger,
+      verifyJWT,
+      async (
+        req,
+        res
+      ) => {
+        try {
+          const {
+            tutorId,
+          } = req.body;
+
+          if (
+            !tutorId
+          ) {
+            return res.status(400).json({
+              message:
+                "Tutor id required",
+            });
+          }
+
+          const query =
+            buildIdQuery(
+              tutorId
+            );
+
+          const tutor =
+            await tutorsCollection.findOne(
+              query
+            );
+
+          if (!tutor) {
+            return res.status(404).json({
+              message:
+                "Tutor not found",
+            });
+          }
+
+          const currentBooked =
+            Number(
+              tutor.totalSeats ||
+                0
+            );
+
+          const maxStudents =
+            Number(
+              tutor.maxStudents ||
+                0
+            );
+
+          
+          //   SEAT CHECK
+          
+
+          if (
+            currentBooked >=
+            maxStudents
+          ) {
+            return res.status(400).json({
+              message:
+                "No seats available",
+            });
+          }
+
+          
+          //   COURSE END CHECK
+          
+
+          const currentMonth =
+            new Date().toLocaleString(
+              "default",
+              {
+                month:
+                  "long",
+              }
+            );
+
+          const monthIndex =
+            months.indexOf(
+              currentMonth
+            );
+
+          const endMonthIndex =
+            months.indexOf(
+              tutor.courseEndMonth
+            );
+
+          if (
+            endMonthIndex !==
+              -1 &&
+            monthIndex >
+              endMonthIndex
+          ) {
+            return res.status(400).json({
+              message:
+                "Course already ended",
+            });
+          }
+
+          
+          //   DUPLICATE CHECK
+          
+
+          const alreadyBooked =
+            await bookedSessionsCollection.findOne(
+              {
+                tutorId:
+                  tutorId,
+
+                userId:
+                  req.userId,
+              }
+            );
+
+          if (
+            alreadyBooked
+          ) {
+            return res.status(400).json({
+              message:
+                "You already booked this session",
+            });
+          }
+
+  
+         //    BOOK DATA
+   
+
+          const bookedData =
+            {
+              tutorId:
+                tutor._id.toString(),
+
+              userId:
+                req.userId,
+
+              tutorName:
+                tutor.name,
+
+              tutorImage:
+                tutor.photoURL,
+
+              subject:
+                tutor.subject,
+
+              fee:
+                tutor.fee,
+
+              institution:
+                tutor.institution,
+
+              courseDuration:
+                tutor.courseDuration,
+
+              bookedAt:
+                new Date(),
+
+              createdAt:
+                new Date(),
+            };
+
+          //   INSERT BOOKING
+   
+          const result =
+            await bookedSessionsCollection.insertOne(
+              bookedData
+            );
+
+           //  UPDATE SEATS
+     
+
+          await tutorsCollection.updateOne(
+            query,
+            {
+              $set: {
+                totalSeats:
+                  currentBooked +
+                  1,
+              },
+            }
+          );
+
+          res.status(201).json({
+            success: true,
+
+            insertedId:
+              result.insertedId,
+
+            message:
+              "Session booked successfully",
+          });
+        } catch (err) {
+          console.log(err);
+
+          res.status(500).json({
+            message:
+              "Booking failed",
+          });
+        }
+      }
+    );
+
+
+     //  GET BOOKED SESSIONS
+
+
+    app.get(
+      "/booked-sessions",
+      logger,
+      verifyJWT,
+      async (
+        req,
+        res
+      ) => {
+        try {
+          const sessions =
+            await bookedSessionsCollection
+              .find({
+                userId:
+                  req.userId,
+              })
+              .sort({
+                createdAt:
+                  -1,
+              })
+              .toArray();
+
+          res.json(
+            Array.isArray(
+              sessions
+            )
+              ? sessions
+              : []
+          );
+        } catch (err) {
+          console.log(err);
+
+          res.status(500).json({
+            message:
+              "Failed to fetch sessions",
+          });
+        }
+      }
+    );
+
+
+     //  DELETE BOOKED SESSION
+
+
+    app.delete(
+      "/booked-sessions/:id",
+      logger,
+      verifyJWT,
+      async (
+        req,
+        res
+      ) => {
+        try {
+          const id =
+            req.params.id;
+
+          const query =
+            buildIdQuery(
+              id
+            );
+
+          const session =
+            await bookedSessionsCollection.findOne(
+              query
+            );
+
+          if (!session) {
+            return res.status(404).json({
+              message:
+                "Session not found",
+            });
+          }
+
+          if (
+            session.userId !==
+            req.userId
+          ) {
+            return res.status(403).json({
+              message:
+                "Forbidden",
+            });
+          }
+
+      
+            // UPDATE TUTOR SEATS
+
+
+          const tutorQuery =
+            buildIdQuery(
+              session.tutorId
+            );
+
+          const tutor =
+            await tutorsCollection.findOne(
+              tutorQuery
+            );
+
+          if (tutor) {
+            const currentSeats =
+              Number(
+                tutor.totalSeats ||
+                  0
+              );
+
+            await tutorsCollection.updateOne(
+              tutorQuery,
+              {
+                $set: {
+                  totalSeats:
+                    currentSeats >
+                    0
+                      ? currentSeats -
+                        1
+                      : 0,
+                },
+              }
+            );
+          }
+
+     
+            // DELETE SESSION
+   
+
+          await bookedSessionsCollection.deleteOne(
+            query
+          );
+
+          res.json({
+            success: true,
+
+            message:
+              "Session cancelled successfully",
+          });
+        } catch (err) {
+          console.log(err);
+
+          res.status(500).json({
+            message:
+              "Cancel failed",
+          });
+        }
+      }
+    );
+
+    console.log(
+      "All routes ready"
+    );
   } catch (err) {
     console.log(err);
   }
@@ -686,9 +1135,13 @@ async function run() {
 run().catch(console.dir);
 
 
+  //  SERVER LISTEN
 
-app.listen(port, () => {
-  console.log(
-    `Server running on ${port}`
-  );
-});
+app.listen(
+  port,
+  () => {
+    console.log(
+      `Server running on ${port}`
+    );
+  }
+);
