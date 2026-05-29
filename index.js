@@ -22,7 +22,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "https://medi-queue-pzfuipzj8-tamimhasanbd06s-projects.vercel.app/",
+    origin: "https://medi-queue-sarbar.vercel.app",
     credentials: true,
   })
 );
