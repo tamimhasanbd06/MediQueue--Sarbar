@@ -22,7 +22,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://medi-queue-pzfuipzj8-tamimhasanbd06s-projects.vercel.app/",
     credentials: true,
   })
 );
