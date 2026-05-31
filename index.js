@@ -24,8 +24,11 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "https://medi-queue-rouge.vercel.app",
-      //  origin: "http://localhost:3000",
+    origin: [
+      "https://medi-queue-rouge.vercel.app",
+      "https://medi-queue-sarbar.vercel.app",
+      "http://localhost:3000",
+    ],
     credentials: true,
   })
 );
@@ -67,6 +70,12 @@ if (!uri) {
   throw new Error(
     "MONGODB_URI missing"
   );
+}
+
+
+
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET missing");
 }
 
 //   MONGODB CLIENT
@@ -1137,14 +1146,10 @@ async function run() {
 
 run().catch(console.dir);
 
+if (process.env.NODE_ENV !== "production") {
+  app.listen(port, () => {
+    console.log(`Server running on ${port}`);
+  });
+}
 
-  //  SERVER LISTEN
-
-app.listen(
-  port,
-  () => {
-    console.log(
-      `Server running on ${port}`
-    );
-  }
-);
+module.exports = app;
