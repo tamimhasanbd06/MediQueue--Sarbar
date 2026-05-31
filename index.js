@@ -22,6 +22,12 @@ const app = express();
 
 app.use(express.json());
 
+// REMOVE ANY HOST-INJECTED CSP
+app.use((req, res, next) => {
+  res.removeHeader("Content-Security-Policy");
+  next();
+});
+
 app.use(
   cors({
     origin: [
