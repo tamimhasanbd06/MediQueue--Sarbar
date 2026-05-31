@@ -22,7 +22,8 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: "https://medi-queue-sarbar.vercel.app",
+    origin: "https://medi-queue-rouge.vercel.app",
+      //  origin: "http://localhost:3000",
     credentials: true,
   })
 );
